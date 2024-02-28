@@ -13,7 +13,9 @@ func WithSentry() echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			ctx := NewContext(c.Request().Context())
 			c.SetRequest(c.Request().WithContext(ctx))
-			sentry.GetHubFromContext(ctx).Scope().SetRequest(c.Request())
+			if hub := sentry.GetHubFromContext(ctx); hub != nil {
+				hub.Scope().SetRequest(c.Request())
+			}
 			defer recoverWithSentry(c)
 
 			if c.Request().URL.Path == "/_health" {

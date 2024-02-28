@@ -46,9 +46,8 @@ func WrapClient(c *http.Client, opts ...APMRoundTripperOption) *http.Client {
 	if c == nil {
 		c = http.DefaultClient
 	}
-	return &http.Client{
-		Transport: WrapRoundTripper(c.Transport, opts...),
-	}
+	c.Transport = WrapRoundTripper(c.Transport, opts...)
+	return c
 }
 
 // WrapRoundTripper wraps an http.RoundTripper with APM instrumentation and retry logic
