@@ -35,6 +35,8 @@ func Flush(ctx ...context.Context) {
 
 // Recover sends the error to sentry
 func Recover(err any, ctx ...context.Context) {
-	GetHub(ctx...).Recover(err)
-	Flush(ctx...)
+	if err != nil {
+		GetHub(ctx...).Recover(err)
+		Flush(ctx...)
+	}
 }
