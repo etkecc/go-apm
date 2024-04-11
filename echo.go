@@ -1,7 +1,6 @@
 package apm
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
@@ -9,10 +8,9 @@ import (
 	"github.com/ziflex/lecho/v3"
 )
 
-// EchoLogger is a wrapper around the zerolog logger that implements the echo.Logger interface.
-func EchoLogger(parent ...context.Context) echo.Logger {
-	zero := Log(parent...)
-	return lecho.From(*zero)
+// EchoLogger is a wrapper around the zerolog logger (without sentry) that implements the echo.Logger interface.
+func EchoLogger() echo.Logger {
+	return lecho.From(*NewLoggerPlain())
 }
 
 // WithSentry is a middleware that creates a new transaction for each request.

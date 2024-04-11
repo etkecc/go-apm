@@ -40,6 +40,17 @@ func NewLogger(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) *zero
 	return &log
 }
 
+// NewLoggerPlain returns a new logger without sentry integration
+func NewLoggerPlain() *zerolog.Logger {
+	consoleWriter := zerolog.ConsoleWriter{
+		Out:          os.Stdout,
+		PartsExclude: []string{zerolog.TimestampFieldName},
+	}
+
+	log := zerolog.New(consoleWriter).With().Timestamp().Caller().Logger()
+	return &log
+}
+
 func newSentryWriter(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) (zerolog.LevelWriter, error) {
 	if sentryDSN == "" {
 		return nil, fmt.Errorf("sentry DSN not set")
