@@ -47,7 +47,7 @@ func NewLoggerPlain() *zerolog.Logger {
 		PartsExclude: []string{zerolog.TimestampFieldName},
 	}
 
-	log := zerolog.New(consoleWriter).With().Timestamp().Caller().Logger()
+	log := zerolog.New(consoleWriter)
 	return &log
 }
 

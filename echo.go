@@ -22,7 +22,7 @@ func WithSentry() echo.MiddlewareFunc {
 			if hub := sentry.GetHubFromContext(ctx); hub != nil {
 				hub.Scope().SetRequest(c.Request())
 			}
-			defer Recover(ctx)
+			defer func() { Recover(recover(), ctx) }()
 
 			if c.Request().URL.Path == "/_health" {
 				return next(c)
