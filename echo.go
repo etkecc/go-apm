@@ -1,11 +1,19 @@
 package apm
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/labstack/echo/v4"
+	"github.com/ziflex/lecho/v3"
 )
+
+// EchoLogger is a wrapper around the zerolog logger that implements the echo.Logger interface.
+func EchoLogger(parent ...context.Context) echo.Logger {
+	zero := Log(parent...)
+	return lecho.From(*zero)
+}
 
 // WithSentry is a middleware that creates a new transaction for each request.
 func WithSentry() echo.MiddlewareFunc {
@@ -16,7 +24,7 @@ func WithSentry() echo.MiddlewareFunc {
 			if hub := sentry.GetHubFromContext(ctx); hub != nil {
 				hub.Scope().SetRequest(c.Request())
 			}
-			defer recoverWithSentry(c)
+			defer Recover(ctx)
 
 			if c.Request().URL.Path == "/_health" {
 				return next(c)
@@ -47,11 +55,5 @@ func WithSentry() echo.MiddlewareFunc {
 			transaction.Status = sentry.SpanStatusOK
 			return nil
 		}
-	}
-}
-
-func recoverWithSentry(c echo.Context) {
-	if err := recover(); err != nil {
-		sentry.GetHubFromContext(c.Request().Context()).Recover(err)
 	}
 }
