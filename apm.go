@@ -2,10 +2,22 @@ package apm
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 )
+
+// Error captures the error and sends it to sentry and healthchecks
+func Error(ctx context.Context, err error) {
+	if err == nil {
+		return
+	}
+
+	GetHub(ctx).CaptureException(err)
+	HealthcheckFail(strings.NewReader("error: " + err.Error()))
+}
 
 // StartSpan starts a new span, and if there is no transaction, it starts a new transaction
 func StartSpan(ctx context.Context, operation string) *sentry.Span {
@@ -38,5 +50,6 @@ func Recover(err any, ctx ...context.Context) {
 	if err != nil {
 		GetHub(ctx...).Recover(err)
 		Flush(ctx...)
+		HealthcheckFail(strings.NewReader(fmt.Sprintf("panic recovered: %+v", err)))
 	}
 }

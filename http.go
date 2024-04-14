@@ -2,8 +2,10 @@ package apm
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -90,11 +92,18 @@ func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	)
 	defer span.Finish()
 
+	var resp *http.Response
+	var err error
 	if rt.maxRetries == 0 {
-		return rt.rt.RoundTrip(req)
+		resp, err = rt.rt.RoundTrip(req)
+	} else {
+		resp, err = rt.retry(req)
 	}
 
-	return rt.retry(req)
+	if err != nil {
+		HealthcheckFail(strings.NewReader(fmt.Sprintf("http.RoundTripper: %s %s failed: %+v", req.Method, req.URL.String(), err)))
+	}
+	return resp, err
 }
 
 // retry is a simple retry mechanism for http requests with exponential backoff
