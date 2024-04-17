@@ -5,7 +5,7 @@ go 1.21.0
 require (
 	github.com/archdx/zerolog-sentry v1.8.2
 	github.com/getsentry/sentry-go v0.27.0
-	github.com/labstack/echo/v4 v4.11.4
+	github.com/labstack/echo/v4 v4.12.0
 	github.com/rs/zerolog v1.32.0
 	github.com/ziflex/lecho/v3 v3.5.0
 )

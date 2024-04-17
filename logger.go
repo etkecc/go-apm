@@ -36,7 +36,7 @@ func NewLogger(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) *zero
 		w = consoleWriter
 	}
 
-	log := zerolog.New(w).With().Timestamp().Caller().Logger()
+	log := zerolog.New(w).With().Timestamp().Caller().Logger().Hook(hcHook)
 	return &log
 }
 
