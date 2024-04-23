@@ -46,10 +46,14 @@ func Flush(ctx ...context.Context) {
 }
 
 // Recover sends the error to sentry
-func Recover(err any, ctx ...context.Context) {
-	if err != nil {
-		GetHub(ctx...).Recover(err)
-		Flush(ctx...)
-		HealthcheckFail(strings.NewReader(fmt.Sprintf("panic recovered: %+v", err)))
+func Recover(err any, repanic bool, ctx ...context.Context) {
+	if err == nil {
+		return
+	}
+	HealthcheckFail(strings.NewReader(fmt.Sprintf("panic recovered: %+v", err)))
+	GetHub(ctx...).Recover(err)
+	Flush(ctx...)
+	if repanic {
+		panic(err)
 	}
 }
