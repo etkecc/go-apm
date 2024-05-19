@@ -1,7 +1,9 @@
 package apm
 
 import (
+	"fmt"
 	"io"
+	"reflect"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -25,7 +27,7 @@ var (
 	}
 )
 
-func (h healthchecksHook) Run(_ *zerolog.Event, level zerolog.Level, msg string) {
+func (h healthchecksHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	// only send healthchecks on error levels
 	if _, ok := hcHookLevels[level]; !ok {
 		return
@@ -36,7 +38,11 @@ func (h healthchecksHook) Run(_ *zerolog.Event, level zerolog.Level, msg string)
 		return
 	}
 
-	HealthcheckFail(strings.NewReader(msg))
+	// create a string that appends } to the end of the buf variable you access via reflection, to get a valid JSON object
+	// ref: https://github.com/rs/zerolog/issues/493#issuecomment-1458241050
+	ev := fmt.Sprintf("%s}", reflect.ValueOf(e).Elem().FieldByName("buf"))
+
+	HealthcheckFail(strings.NewReader(msg + " " + ev))
 }
 
 // HealthcheckFail sends a healthcheck fail event (if healthchecks are configured)
