@@ -6,7 +6,7 @@ require (
 	github.com/archdx/zerolog-sentry v1.8.3
 	github.com/getsentry/sentry-go v0.27.0
 	github.com/labstack/echo/v4 v4.12.0
-	github.com/rs/zerolog v1.32.0
+	github.com/rs/zerolog v1.33.0
 	github.com/ziflex/lecho/v3 v3.6.0
 )
 
