@@ -1,4 +1,4 @@
-module gitlab.com/etke.cc/go/apm
+module github.com/etkecc/go-apm
 
 go 1.21.0
 
