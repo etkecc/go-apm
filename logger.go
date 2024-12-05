@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	sentryzerolog "github.com/getsentry/sentry-go/zerolog"
 	"github.com/rs/zerolog"
@@ -58,7 +57,6 @@ func newSentryWriter(ctx context.Context) (zerolog.LevelWriter, error) {
 
 	return sentryzerolog.NewWithHub(GetHub(ctx), sentryzerolog.Options{
 		Levels:          []zerolog.Level{zerolog.ErrorLevel, zerolog.FatalLevel, zerolog.PanicLevel},
-		FlushTimeout:    5 * time.Second,
 		WithBreadcrumbs: true,
 	})
 }
