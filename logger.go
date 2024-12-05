@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
-	zlogsentry "github.com/archdx/zerolog-sentry"
-	"github.com/getsentry/sentry-go"
+	sentryzerolog "github.com/getsentry/sentry-go/zerolog"
 	"github.com/rs/zerolog"
 )
 
@@ -19,7 +19,7 @@ func Log(ctx ...context.Context) *zerolog.Logger {
 }
 
 // NewLogger returns a new logger with sentry integration (if possible)
-func NewLogger(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) *zerolog.Logger {
+func NewLogger(ctx context.Context) *zerolog.Logger {
 	var w zerolog.LevelWriter
 
 	consoleWriter := zerolog.LevelWriterAdapter{
@@ -29,7 +29,7 @@ func NewLogger(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) *zero
 		},
 	}
 
-	sentryWriter, err := newSentryWriter(ctx, sentryOpts...)
+	sentryWriter, err := newSentryWriter(ctx)
 	if err == nil {
 		w = zerolog.MultiLevelWriter(sentryWriter, consoleWriter)
 	} else {
@@ -51,27 +51,14 @@ func NewLoggerPlain() *zerolog.Logger {
 	return &log
 }
 
-func newSentryWriter(ctx context.Context, sentryOpts ...zlogsentry.WriterOption) (zerolog.LevelWriter, error) {
+func newSentryWriter(ctx context.Context) (zerolog.LevelWriter, error) {
 	if sentryDSN == "" {
 		return nil, fmt.Errorf("sentry DSN not set")
 	}
 
-	if hub := sentry.GetHubFromContext(ctx); hub != nil && hub.Scope() != nil && hub.Client() != nil {
-		return zlogsentry.NewWithHub(hub, getSentryOptions(sentryOpts...)...)
-	}
-	return zlogsentry.New(sentryDSN, getSentryOptions(sentryOpts...)...)
-}
-
-func getSentryOptions(sentryOpts ...zlogsentry.WriterOption) []zlogsentry.WriterOption {
-	if len(sentryOpts) > 0 {
-		return sentryOpts
-	}
-
-	return []zlogsentry.WriterOption{
-		zlogsentry.WithBreadcrumbs(),
-		zlogsentry.WithTracing(),
-		zlogsentry.WithSampleRate(0.25),
-		zlogsentry.WithTracingSampleRate(0.25),
-		zlogsentry.WithRelease(sentryName + "@" + sentryVersion),
-	}
+	return sentryzerolog.NewWithHub(GetHub(ctx), sentryzerolog.Options{
+		Levels:          []zerolog.Level{zerolog.ErrorLevel, zerolog.FatalLevel, zerolog.PanicLevel},
+		FlushTimeout:    5 * time.Second,
+		WithBreadcrumbs: true,
+	})
 }
