@@ -3,10 +3,10 @@ package apm
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 )
 
 func TestNewContext(t *testing.T) {
@@ -21,10 +21,10 @@ func TestNewContext(t *testing.T) {
 	if logger == nil {
 		t.Fatal("expected logger in context")
 	}
-	if logger != zerolog.Ctx(ctx) {
+	if logger != ctx.Value(loggerKey{}) {
 		t.Fatal("expected logger from context")
 	}
-	if logger.GetLevel() == zerolog.Disabled {
+	if !logger.Enabled(ctx, slog.LevelInfo) {
 		t.Fatal("expected enabled logger")
 	}
 }
@@ -48,6 +48,22 @@ func TestNewContextPreservesHub(t *testing.T) {
 
 	if got := sentry.GetHubFromContext(ctx); got != f.hub {
 		t.Fatal("expected parent hub to be preserved")
+	}
+}
+
+func TestNewContextSetsHub(t *testing.T) {
+	resetAPM(t)
+	sentryDSN = "https://key@example.com/1"
+
+	current := sentry.CurrentHub()
+	ctx := NewContext()
+	got := sentry.GetHubFromContext(ctx)
+
+	if got == nil {
+		t.Fatal("expected a hub on the context when sentry is configured")
+	}
+	if got == current {
+		t.Fatal("expected NewContext to clone the current hub")
 	}
 }
 

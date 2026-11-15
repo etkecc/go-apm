@@ -1,16 +1,19 @@
 package apm
 
 import (
+	"fmt"
+	"log/slog"
+	"math"
 	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 )
 
 var (
 	hc            Healthchecks
-	loglevel      zerolog.Level
+	loglevel      slog.LevelVar
 	initialized   bool
 	initMu        sync.Mutex
 	sentryDSN     string
@@ -32,23 +35,46 @@ func SetName(name string) {
 	sentryName = name
 }
 
-// SetLogLevel sets the log level
+// SetLogLevel sets the level of loggers created by this package, defaulting to info on unknown names
 func SetLogLevel(level string) {
-	var err error
-	loglevel, err = zerolog.ParseLevel(level)
+	parsed, err := parseLogLevel(level)
 	if err != nil {
-		loglevel = zerolog.InfoLevel
+		parsed = slog.LevelInfo
 	}
-	zerolog.SetGlobalLevel(loglevel)
+	loglevel.Set(parsed)
 }
 
-// SetSentryDSN sets the sentry DSN and initializes it
+// parseLogLevel maps a level name, including zerolog-era names, to a slog level
+func parseLogLevel(level string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "trace":
+		return slog.LevelDebug - 4, nil
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info", "":
+		return slog.LevelInfo, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	case "fatal":
+		return slog.LevelError + 4, nil
+	case "panic":
+		return slog.LevelError + 8, nil
+	case "disabled":
+		return slog.Level(math.MaxInt), nil
+	default:
+		return 0, fmt.Errorf("unknown log level %q", level)
+	}
+}
+
+// SetSentryDSN sets the sentry DSN and initializes it; call it during startup
 func SetSentryDSN(dsn string) {
 	sentryDSN = dsn
 	initSentry()
 }
 
-// SetHealthchecks sets the healthchecks client
+// SetHealthchecks sets the healthchecks client; call it during startup
 func SetHealthchecks(h Healthchecks) {
 	hc = h
 }
@@ -72,7 +98,7 @@ func initSentry() {
 		Release:     sentryVersion,
 	})
 	if err != nil {
-		NewLoggerPlain().Error().Err(err).Msg("sentry initialization failed")
+		NewLoggerPlain().Error("sentry initialization failed", "error", err)
 		return
 	}
 

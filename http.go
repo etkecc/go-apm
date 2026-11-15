@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -81,7 +81,7 @@ func WrapRoundTripper(rt http.RoundTripper, opts ...RoundTripperOption) http.Rou
 // RoundTrip implements http.RoundTripper: creates a transaction/span per request and retries 5xx responses.
 func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// creating a custom http.client transaction if not already present to avoid unlabeled transactions
-	name := req.Method + " " + req.URL.String()
+	name := req.Method + " " + req.URL.Redacted()
 	transaction := sentry.TransactionFromContext(req.Context())
 	if transaction == nil {
 		transaction = sentry.StartTransaction(req.Context(), name,
@@ -110,7 +110,7 @@ func (rt *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && rt.hcEnabled {
-		HealthcheckFail(strings.NewReader(fmt.Sprintf("http.RoundTripper: %s %s failed: %+v", req.Method, req.URL.String(), err)))
+		HealthcheckFail(strings.NewReader(fmt.Sprintf("http.RoundTripper: %s %s failed: %+v", req.Method, req.URL.Redacted(), err)))
 	}
 	return resp, err
 }
@@ -137,15 +137,15 @@ func (rt *RoundTripper) retry(req *http.Request, currentRetry ...int) (*http.Res
 		return resp, err
 	}
 	if resp != nil && resp.StatusCode >= 500 && resp.StatusCode <= 599 {
-		log := zerolog.Ctx(req.Context()).With().
-			Int("try", retry).
-			Int("of", rt.maxRetries).
-			Str("reason", resp.Status).
-			Str("req", req.Method+" "+req.URL.String()).
-			Logger()
+		log := Log(req.Context()).With(
+			slog.Int("try", retry),
+			slog.Int("of", rt.maxRetries),
+			slog.String("reason", resp.Status),
+			slog.String("req", req.Method+" "+req.URL.Redacted()),
+		)
 		if retry <= rt.maxRetries {
 			delay := time.Duration(retry) * rt.retryDelay
-			log.Warn().Str("in", delay.String()).Msg("retrying")
+			log.Warn("retrying", slog.String("in", delay.String()))
 			if body != nil {
 				req.Body = io.NopCloser(bytes.NewReader(body))
 			}
@@ -153,7 +153,7 @@ func (rt *RoundTripper) retry(req *http.Request, currentRetry ...int) (*http.Res
 			retry++
 			return rt.retry(req, retry)
 		}
-		log.Warn().Msg("max retries reached")
+		log.Warn("max retries reached")
 	}
 	return resp, err
 }

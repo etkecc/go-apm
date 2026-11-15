@@ -3,6 +3,7 @@ package apm
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 )
 
 type testTransport struct {
@@ -126,25 +126,24 @@ func resetAPM(t *testing.T) {
 	t.Helper()
 
 	prevHC := hc
-	prevLevel := loglevel
+	prevLevel := loglevel.Level()
 	prevInitialized := initialized
 	prevDSN := sentryDSN
 	prevName := sentryName
-	prevGlobalLevel := zerolog.GlobalLevel()
 	prevClient := sentry.CurrentHub().Client()
 
 	hc = nil
+	loglevel.Set(slog.LevelInfo)
 	initialized = false
 	sentryDSN = ""
 	sentryName = ""
 
 	t.Cleanup(func() {
 		hc = prevHC
-		loglevel = prevLevel
+		loglevel.Set(prevLevel)
 		initialized = prevInitialized
 		sentryDSN = prevDSN
 		sentryName = prevName
-		zerolog.SetGlobalLevel(prevGlobalLevel)
 		sentry.CurrentHub().BindClient(prevClient)
 	})
 }

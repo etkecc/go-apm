@@ -3,33 +3,21 @@ package apm
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
-
-func TestEchoLogger(t *testing.T) {
-	resetAPM(t)
-
-	out := captureStdout(t, func() {
-		logger := EchoLogger()
-		logger.Infof("echo %s", "hello")
-	})
-
-	if !strings.Contains(out, "echo hello") {
-		t.Fatalf("expected echo log output, got %q", out)
-	}
-}
 
 func TestWithSentryFallbackPath(t *testing.T) {
 	resetAPM(t)
 	e := newTestEcho()
 	transaction := (*sentry.Span)(nil)
-	handler := WithSentry()(func(c echo.Context) error {
+	handler := WithSentry()(func(c *echo.Context) error {
 		transaction = sentry.TransactionFromContext(c.Request().Context())
 		return c.NoContent(http.StatusNoContent)
 	})
@@ -58,7 +46,7 @@ func TestWithSentryTransaction(t *testing.T) {
 	transaction := (*sentry.Span)(nil)
 
 	e.Use(WithSentry())
-	e.GET("/users/:id", func(c echo.Context) error {
+	e.GET("/users/:id", func(c *echo.Context) error {
 		transaction = sentry.TransactionFromContext(c.Request().Context())
 		return c.String(http.StatusOK, "ok")
 	})
@@ -113,7 +101,7 @@ func TestWithSentrySkipsHealthPath(t *testing.T) {
 	noTransaction := false
 
 	e.Use(WithSentry())
-	e.GET("/_health", func(c echo.Context) error {
+	e.GET("/_health", func(c *echo.Context) error {
 		noTransaction = sentry.TransactionFromContext(c.Request().Context()) == nil
 		return c.NoContent(http.StatusOK)
 	})
@@ -135,7 +123,7 @@ func TestWithSentrySetsErrorStatus(t *testing.T) {
 	transaction := (*sentry.Span)(nil)
 
 	e.Use(WithSentry())
-	e.GET("/fail", func(c echo.Context) error {
+	e.GET("/fail", func(c *echo.Context) error {
 		transaction = sentry.TransactionFromContext(c.Request().Context())
 		if err := c.String(http.StatusBadGateway, "bad"); err != nil {
 			return err
@@ -157,6 +145,31 @@ func TestWithSentrySetsErrorStatus(t *testing.T) {
 	}
 }
 
+func TestWithSentryUsesHTTPErrorStatus(t *testing.T) {
+	resetAPM(t)
+	e := newTestEcho()
+	transaction := (*sentry.Span)(nil)
+
+	e.Use(WithSentry())
+	e.GET("/missing", func(c *echo.Context) error {
+		transaction = sentry.TransactionFromContext(c.Request().Context())
+		return echo.ErrNotFound
+	})
+
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/missing", nil))
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", rec.Code)
+	}
+	if transaction == nil {
+		t.Fatal("expected transaction in request context")
+	}
+	if transaction.Status != sentry.SpanStatusNotFound {
+		t.Fatalf("unexpected transaction status: %s", transaction.Status)
+	}
+}
+
 func TestWithSentryRepanics(t *testing.T) {
 	resetAPM(t)
 	checker := &mockHealthchecks{}
@@ -164,7 +177,7 @@ func TestWithSentryRepanics(t *testing.T) {
 	e := newTestEcho()
 
 	e.Use(WithSentry())
-	e.GET("/panic", func(echo.Context) error {
+	e.GET("/panic", func(*echo.Context) error {
 		panic("boom")
 	})
 
@@ -193,7 +206,7 @@ func TestWithSentrySetsRequestScope(t *testing.T) {
 	usedHub := (*sentry.Hub)(nil)
 
 	e.Use(WithSentry())
-	e.GET("/scoped", func(c echo.Context) error {
+	e.GET("/scoped", func(c *echo.Context) error {
 		usedHub = GetHub(c.Request().Context())
 		usedHub.CaptureMessage("scoped message")
 		return c.NoContent(http.StatusOK)
@@ -225,6 +238,6 @@ func TestWithSentrySetsRequestScope(t *testing.T) {
 
 func newTestEcho() *echo.Echo {
 	e := echo.New()
-	e.Logger.SetOutput(io.Discard)
+	e.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return e
 }

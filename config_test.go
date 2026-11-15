@@ -1,11 +1,12 @@
 package apm
 
 import (
+	"log/slog"
+	"math"
 	"strings"
 	"testing"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 )
 
 func TestSetName(t *testing.T) {
@@ -18,22 +19,32 @@ func TestSetName(t *testing.T) {
 }
 
 func TestSetLogLevel(t *testing.T) {
-	resetAPM(t)
+	cases := []struct {
+		name  string
+		level string
+		want  slog.Level
+	}{
+		{name: "trace", level: "trace", want: slog.LevelDebug - 4},
+		{name: "debug", level: "debug", want: slog.LevelDebug},
+		{name: "info", level: "INFO", want: slog.LevelInfo},
+		{name: "empty", level: "", want: slog.LevelInfo},
+		{name: "warn", level: "warn", want: slog.LevelWarn},
+		{name: "warning", level: " warning ", want: slog.LevelWarn},
+		{name: "error", level: "error", want: slog.LevelError},
+		{name: "fatal", level: "fatal", want: slog.LevelError + 4},
+		{name: "panic", level: "panic", want: slog.LevelError + 8},
+		{name: "disabled", level: "disabled", want: slog.Level(math.MaxInt)},
+		{name: "unknown", level: "not-a-level", want: slog.LevelInfo},
+	}
 
-	SetLogLevel("debug")
-	if loglevel != zerolog.DebugLevel {
-		t.Fatalf("expected debug log level, got %s", loglevel)
-	}
-	if got := zerolog.GlobalLevel(); got != zerolog.DebugLevel {
-		t.Fatalf("expected global debug level, got %s", got)
-	}
-
-	SetLogLevel("not-a-level")
-	if loglevel != zerolog.InfoLevel {
-		t.Fatalf("expected info log level fallback, got %s", loglevel)
-	}
-	if got := zerolog.GlobalLevel(); got != zerolog.InfoLevel {
-		t.Fatalf("expected global info level, got %s", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetAPM(t)
+			SetLogLevel(tc.level)
+			if got := loglevel.Level(); got != tc.want {
+				t.Fatalf("SetLogLevel(%q) = %s, want %s", tc.level, got, tc.want)
+			}
+		})
 	}
 }
 

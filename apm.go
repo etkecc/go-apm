@@ -12,8 +12,8 @@ import (
 
 // skipStackPgs is a list of packages to skip in the stack trace
 var skipStackPgs = []string{
-	"github.com/etkecc/go-apm",
-	"github.com/rs/zerolog",
+	"github.com/etkecc/go-apm/v2",
+	"log/slog",
 }
 
 // Error captures the error and sends it to sentry and healthchecks

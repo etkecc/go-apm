@@ -4,19 +4,13 @@ import (
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/labstack/echo/v4"
-	"github.com/ziflex/lecho/v3"
+	"github.com/labstack/echo/v5"
 )
-
-// EchoLogger is a wrapper around the zerolog logger (without sentry) that implements the echo.Logger interface.
-func EchoLogger() echo.Logger {
-	return lecho.From(*NewLoggerPlain())
-}
 
 // WithSentry is a middleware that creates a new transaction for each request.
 func WithSentry() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			ctx := NewContext(c.Request().Context())
 			c.SetRequest(c.Request().WithContext(ctx))
 			if hub := sentry.GetHubFromContext(ctx); hub != nil {
@@ -47,7 +41,8 @@ func WithSentry() echo.MiddlewareFunc {
 
 			c.SetRequest(c.Request().WithContext(transaction.Context()))
 			if err := next(c); err != nil {
-				transaction.Status = sentry.HTTPtoSpanStatus(c.Response().Status)
+				_, status := echo.ResolveResponseStatus(c.Response(), err)
+				transaction.Status = sentry.HTTPtoSpanStatus(status)
 				return err
 			}
 			transaction.Status = sentry.SpanStatusOK
